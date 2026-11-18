@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aweyuki Flasher — Obsidian Studio</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <input id="rom-file-input" type="file" accept=".zip,.bin,.img" hidden />
+
+  <div id="drop-overlay" class="drop-overlay hidden">
+    <div class="drop-card">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <div id="drop-title">Thả file ROM vào đây để phân tích</div>
+      <div id="drop-sub">.zip (Fastboot / Payload OTA / Sideload), payload.bin, super.img, hoặc .img</div>
+    </div>
+  </div>
+
+  <!-- Top Navigation -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand-group">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/>
+          </svg>
+        </div>
+        <div class="brand-title">
+          <span class="brand-name">Aweyuki</span>
+          <span class="brand-sub">Flasher Studio</span>
+        </div>
+        <span class="pill pill-wasm">WASM Core</span>
+      </div>
+
+      <div class="topbar-actions">
+        <button id="btn-open-file" class="btn btn-secondary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span data-i18n="openFile">Mở File ROM</span>
+        </button>
+
+        <div class="sample-wrap">
+          <select id="sample-select" class="select-control" aria-label="Sample ROM">
+            <option value="payload-zip" data-i18n-opt="samplePayloadZip">ROM mẫu: Payload OTA (.zip)</option>
+            <option value="payload" data-i18n-opt="samplePayload">ROM mẫu: payload.bin (CrAU)</option>
+            <option value="super" data-i18n-opt="sampleSuper">ROM mẫu: super.img (Sparse LP)</option>
+            <option value="fastboot-zip" data-i18n-opt="sampleFastboot">ROM mẫu: Fastboot ROM (.zip)</option>
+            <option value="sideload-zip" data-i18n-opt="sampleSideload">ROM mẫu: Recovery Sideload (.zip)</option>
+          </select>
+        </div>
+
+        <button id="btn-toggle-drawer" class="btn btn-secondary mobile-only">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.77 1 1.51 1H21a2 2 0 0 1 0 4h-.09c-.74 0-1.25.4-1.51 1z"/>
+          </svg>
+          <span data-i18n="configBtn">Cấu hình</span>
+        </button>
+
+        <div class="lang-switch" role="group" aria-label="Language">
+          <button id="lang-vi" class="lang-btn active">VN</button>
+          <button id="lang-en" class="lang-btn">EN</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="studio-shell">
+    <!-- Left Inspector Panel -->
+    <aside id="inspector-panel" class="inspector">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-kicker" data-i18n="deviceSection">THIẾT BỊ ĐÍCH (SIMULATOR)</span>
+          <span id="dev-mode-pill" class="mode-badge mode-bootloader">BOOTLOADER</span>
+        </div>
+
+        <div class="device-hero">
+          <span id="dev-led" class="led led-green"></span>
+          <div class="device-meta">
+            <div id="dev-product" class="device-name">aweyuki_demo</div>
+            <div id="dev-sub" class="device-sub mono">TERMUX-OTG-256K • Slot A</div>
+          </div>
+        </div>
+
+        <label class="field-label" for="sim-profile-select" data-i18n="simProfileLbl">Profile giả lập thiết bị</label>
+        <select id="sim-profile-select" class="select-control full-w">
+          <option value="low-buffer">Termux OTG Low-Buffer (256 KB)</option>
+          <option value="pixel9">Pixel 9 Pro (A/B • 256 MB)</option>
+          <option value="xiaomi">Xiaomi 14T Pro (HyperOS • 512 MB)</option>
+          <option value="sideload">LineageOS Recovery (ADB Sideload)</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-kicker" data-i18n="optionsSection">CHIA NHỎ & CẤU HÌNH FLASH</span>
+        </div>
+
+        <label class="field-label" for="max-dl-select" data-i18n="maxDlLbl">Giới hạn chia chunk (max-download-size)</label>
+        <select id="max-dl-select" class="select-control full-w">
+          <option value="262144">256 KB (Demo cắt chunk)</option>
+          <option value="67108864">64 MB (OTG an toàn)</option>
+          <option value="134217728">128 MB</option>
+          <option value="268435456">256 MB (Tiêu chuẩn)</option>
+          <option value="536870912">512 MB</option>
+        </select>
+
+        <label class="field-label mt-12" for="slot-select" data-i18n="slotLbl">Slot đích</label>
+        <select id="slot-select" class="select-control full-w">
+          <option value="active">Active Slot</option>
+          <option value="a">Slot A (_a)</option>
+          <option value="b">Slot B (_b)</option>
+          <option value="both">Both Slots (_a + _b)</option>
+        </select>
+
+        <div class="field-label mt-12" data-i18n="superStrategyLbl">Chiến lược super.img</div>
+        <div class="segmented full-w">
+          <button id="super-whole" class="seg-btn active" data-i18n="superWhole">Nguyên khối</button>
+          <button id="super-unpack" class="seg-btn" data-i18n="superUnpack">Bung fastbootd</button>
+        </div>
+
+        <div class="toggle-list">
+          <label class="toggle-row">
+            <span data-i18n="optSplit">Tự động cắt Sparse (.simg chunks)</span>
+            <input type="checkbox" id="opt-auto-split" checked />
+            <span class="switch"></span>
+          </label>
+          <label class="toggle-row">
+            <span data-i18n="optVbmeta">Patch vbmeta (--disable-verity)</span>
+            <input type="checkbox" id="opt-vbmeta" checked />
+            <span class="switch"></span>
+          </label>
+          <label class="toggle-row">
+            <span data-i18n="optResize">Resize logical & xoá -cow</span>
+            <input type="checkbox" id="opt-resize" checked />
+            <span class="switch"></span>
+          </label>
+          <label class="toggle-row">
+            <span data-i18n="optSideload">Ưu tiên ADB Sideload</span>
+            <input type="checkbox" id="opt-sideload" />
+            <span class="switch"></span>
+          </label>
+          <label class="toggle-row">
+            <span data-i18n="optWipe">Xoá dữ liệu (Wipe -w)</span>
+            <input type="checkbox" id="opt-wipe" />
+            <span class="switch"></span>
+          </label>
+          <label class="toggle-row">
+            <span data-i18n="optReboot">Tự khởi động lại sau khi xong</span>
+            <input type="checkbox" id="opt-reboot" checked />
+            <span class="switch"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="cta-stack">
+        <button id="btn-flash" class="btn btn-primary full-w">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg>
+          <span data-i18n="flashNow">Bắt đầu Flash ngay</span>
+        </button>
+        <button id="btn-dryrun" class="btn btn-outline full-w">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span data-i18n="dryRun">Chạy thử & Kiểm tra (Dry-Run)</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Studio Column -->
+    <section class="workspace">
+      <!-- Compact mobile quick-flash strip -->
+      <div class="mobile-action-bar mobile-only card">
+        <div class="mobile-dev-info">
+          <span id="mob-dev-pill" class="mode-badge mode-bootloader">BOOTLOADER</span>
+          <span id="mob-dev-name" class="mono">aweyuki_demo</span>
+        </div>
+        <div class="mobile-btns">
+          <button id="mob-btn-flash" class="btn btn-primary btn-sm">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg>
+            <span data-i18n="flashShort">Flash ngay</span>
+          </button>
+          <button id="mob-btn-dryrun" class="btn btn-outline btn-sm">Dry-Run</button>
+        </div>
+      </div>
+
+      <!-- Toast / Status Banner -->
+      <div id="toast-banner" class="toast hidden"></div>
+
+      <!-- ROM Hero + 4-Stage Pipeline Card -->
+      <div class="card hero-card">
+        <div class="hero-top">
+          <div>
+            <div class="hero-title-row">
+              <h1 id="pkg-name" class="pkg-title">aweyuki-ota-payload.zip</h1>
+              <span id="pkg-kind-pill" class="pill pill-info">Android OTA ZIP (payload.bin)</span>
+            </div>
+            <div class="hero-badges">
+              <span id="pkg-size-pill" class="pill pill-muted mono">1.13 MiB</span>
+              <span id="pkg-board-pill" class="pill pill-green hidden">Board: aweyuki_demo</span>
+              <span id="pkg-shield-pill" class="pill pill-amber hidden">Blocked oem lock</span>
+              <span id="plan-maxdl-pill" class="pill pill-muted mono">MaxDL: 256.0 KiB</span>
+            </div>
+          </div>
+          <div class="hero-summary">
+            <div class="summary-stat">
+              <span class="stat-val" id="stat-parts">8</span>
+              <span class="stat-lbl" data-i18n="statParts">Phân vùng</span>
+            </div>
+            <div class="summary-stat">
+              <span class="stat-val" id="stat-steps">14</span>
+              <span class="stat-lbl" data-i18n="statSteps">Bước Flash</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="pkg-warnings" class="warnings-box hidden"></div>
+
+        <!-- 4-Stage Pipeline Stepper -->
+        <div class="pipeline" id="pipeline-bar">
+          <div class="pipe-step" data-stage="bootloader">
+            <span class="pipe-num">01</span>
+            <div class="pipe-meta">
+              <span class="pipe-title">Bootloader</span>
+              <span class="pipe-count" id="pipe-boot-cnt">5 bước</span>
+            </div>
+          </div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step" data-stage="fastbootd">
+            <span class="pipe-num">02</span>
+            <div class="pipe-meta">
+              <span class="pipe-title">Fastbootd / Dynamic</span>
+              <span class="pipe-count" id="pipe-fb-cnt">7 bước</span>
+            </div>
+          </div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step" data-stage="sideload">
+            <span class="pipe-num">03</span>
+            <div class="pipe-meta">
+              <span class="pipe-title">ADB Sideload</span>
+              <span class="pipe-count" id="pipe-side-cnt">0 bước</span>
+            </div>
+          </div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step" data-stage="finalize">
+            <span class="pipe-num">04</span>
+            <div class="pipe-meta">
+              <span class="pipe-title" data-i18n="pipeDone">Hoàn tất & Reboot</span>
+              <span class="pipe-count" id="pipe-fin-cnt">1 bước</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Bar -->
+      <nav class="tabbar" role="tablist">
+        <button class="tab-btn active" data-tab="partitions">
+          <span data-i18n="tabParts">Phân vùng & Kế hoạch</span>
+          <span class="tab-badge" id="tab-badge-parts">8</span>
+        </button>
+        <button class="tab-btn" data-tab="splitter">
+          <span data-i18n="tabSplit">Chia nhỏ Phân vùng</span>
+        </button>
+        <button class="tab-btn" data-tab="script">
+          <span data-i18n="tabScript">Xuất Script</span>
+        </button>
+        <button class="tab-btn" data-tab="console">
+          <span data-i18n="tabConsole">Console</span>
+          <span class="tab-badge hidden" id="tab-badge-logs">0</span>
+        </button>
+      </nav>
+
+      <!-- Tab 1: Partitions & Execution Plan -->
+      <div id="tab-partitions" class="tab-pane active">
+        <div class="card no-pad">
+          <div class="card-subheader">
+            <div>
+              <div class="subhead-title" data-i18n="partListTitle">Phân vùng tự động phát hiện</div>
+              <div class="subhead-hint" data-i18n="partListHint">Kéo-thả file .zip, payload.bin, super.img hoặc .img vào bất kỳ đâu để phân tích tức thì</div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="part-table">
+              <thead>
+                <tr>
+                  <th style="width:44px">Flash</th>
+                  <th data-i18n="colPart">Phân vùng</th>
+                  <th data-i18n="colFormat">Định dạng / Magic</th>
+                  <th class="num" data-i18n="colSize">Dung lượng</th>
+                  <th data-i18n="colStage">Giai đoạn</th>
+                  <th data-i18n="colChunks">Chunks</th>
+                  <th class="right" data-i18n="colActions">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="partitions-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-kicker" data-i18n="planTitle">TRÌNH TỰ LỆNH FLASH TỰ ĐỘNG</span>
+            <span id="plan-step-count" class="pill pill-muted">14 steps</span>
+          </div>
+          <div id="plan-timeline" class="timeline"></div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Sparse Chunk Splitter & Super Layout -->
+      <div id="tab-splitter" class="tab-pane">
+        <div class="card">
+          <div class="split-toolbar">
+            <div class="split-select-group">
+              <label class="field-label" for="split-part-select" data-i18n="splitSelectLbl">Phân vùng kiểm tra chia nhỏ</label>
+              <select id="split-part-select" class="select-control"></select>
+            </div>
+            <div class="legend">
+              <span class="leg-item"><i class="swatch sw-dc"></i> DONT_CARE (Seek)</span>
+              <span class="leg-item"><i class="swatch sw-raw"></i> RAW Data</span>
+              <span class="leg-item"><i class="swatch sw-fill"></i> FILL(0) Nén 0</span>
+            </div>
+          </div>
+
+          <div class="kpi-grid" id="split-kpis">
+            <div class="kpi-card">
+              <div class="kpi-lbl" data-i18n="kpiRaw">Dung lượng gốc</div>
+              <div class="kpi-val mono" id="split-kpi-raw">—</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-lbl" data-i18n="kpiMaxDl">Giới hạn mỗi chunk</div>
+              <div class="kpi-val mono" id="split-kpi-max">—</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-lbl" data-i18n="kpiChunks">Số gói .simg xuất ra</div>
+              <div class="kpi-val mono accent-cyan" id="split-kpi-count">—</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-lbl" data-i18n="kpiEncoded">Tổng sau nén Sparse</div>
+              <div class="kpi-val mono accent-green" id="split-kpi-enc">—</div>
+            </div>
+          </div>
+
+          <div id="split-bars" class="split-bars"></div>
+        </div>
+
+        <div id="super-card" class="card hidden">
+          <div class="card-header">
+            <span class="card-kicker">DYNAMIC SUPER PARTITION (LPMETADATA)</span>
+            <span id="super-meta-pill" class="pill pill-info">Sparse LP</span>
+          </div>
+          <div id="super-groups"></div>
+          <div id="super-parts" class="super-part-list"></div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Export Script -->
+      <div id="tab-script" class="tab-pane">
+        <div class="card">
+          <div class="script-toolbar">
+            <div class="segmented">
+              <button class="seg-btn active" data-script="sh">Linux / macOS (.sh)</button>
+              <button class="seg-btn" data-script="bat">Windows (.bat)</button>
+              <button class="seg-btn" data-script="termux">Termux OTG (.sh)</button>
+            </div>
+            <div class="script-actions">
+              <button id="btn-copy-script" class="btn btn-secondary btn-sm" data-i18n="copyBtn">Sao chép</button>
+              <button id="btn-download-script" class="btn btn-primary btn-sm" data-i18n="downloadBtn">Tải file script</button>
+            </div>
+          </div>
+          <div class="terminal-window">
+            <div class="terminal-titlebar">
+              <span class="dot dot-red"></span><span class="dot dot-amber"></span><span class="dot dot-green"></span>
+              <span id="script-filename" class="term-title mono">flash_rom.sh</span>
+            </div>
+            <pre id="script-preview" class="code-pre mono"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 4: Execution & Console -->
+      <div id="tab-console" class="tab-pane">
+        <div class="card">
+          <div class="progress-head">
+            <span id="console-status-text" data-i18n="consoleReady">Sẵn sàng chạy giả lập hoặc Dry-Run</span>
+            <span id="console-pct" class="mono">0%</span>
+          </div>
+          <div class="progress-track">
+            <div id="console-progress-bar" class="progress-fill" style="width: 0%"></div>
+          </div>
+          <div id="console-kpis" class="kpi-grid mt-12 hidden">
+            <div class="kpi-card">
+              <div class="kpi-lbl" data-i18n="kpiStepsDone">Bước hoàn thành</div>
+              <div class="kpi-val mono accent-green" id="con-kpi-steps">0</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-lbl" data-i18n="kpiChunksSent">Gói đã truyền</div>
+              <div class="kpi-val mono accent-cyan" id="con-kpi-chunks">0</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-lbl" data-i18n="kpiBytesSent">Tổng dung lượng</div>
+              <div class="kpi-val mono" id="con-kpi-bytes">0 B</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="terminal-window">
+          <div class="terminal-titlebar">
+            <span class="dot dot-red"></span><span class="dot dot-amber"></span><span class="dot dot-green"></span>
+            <span class="term-title mono">aweyuki — fastboot / adb simulator output</span>
+          </div>
+          <div id="console-log-lines" class="terminal-body mono"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

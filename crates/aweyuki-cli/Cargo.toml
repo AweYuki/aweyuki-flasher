@@ -1,0 +1,14 @@
+[package]
+name = "aweyuki-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "aweyuki"
+path = "src/main.rs"
+
+[dependencies]
+aweyuki-core = { path = "../aweyuki-core" }
+clap = { version = "4.5", features = ["derive"] }
+anyhow = "1"
